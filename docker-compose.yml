@@ -1,0 +1,79 @@
+version: '3.3'
+
+services:
+  client:
+    build: ./client
+    image: ticker_client
+    container_name: ticker_client
+    volumes:
+      - ./client/:/code/
+      - /code/node_modules
+    ports:
+      - "3000:3000"
+    command: yarn run start
+
+  collector:
+    build:
+      context: ./collector
+    image: ticker_collector
+    container_name: ticker_collector
+    environment:
+      DB_USER: "ticker"
+      DB_PASSWORD: "ticker"
+      DB_HOST: "postgres"
+      DB_PORT: 5432
+      DB_NAME: "ticker"
+      PYTHONUNBUFFERED: 0
+    volumes:
+      - ./collector/src/:/code/
+    depends_on:
+      - postgres
+
+  postgres:
+    container_name: ticker_database
+    image: postgres:9.6.5
+    environment:
+      POSTGRES_PASSWORD: "ticker"
+      POSTGRES_USER: "ticker"
+      POSTGRES_DB: "ticker"
+    ports:
+      - "5432:5432"
+    volumes:
+      - ticker-data:/var/lib/postgresql/data
+  
+  processor:
+    build:
+      context: ./processor
+    image: ticker_processor
+    container_name: ticker_processor
+    environment:
+      DB_USER: "ticker"
+      DB_PASSWORD: "ticker"
+      DB_HOST: "postgres"
+      DB_PORT: 5432
+      DB_NAME: "ticker"
+      PYTHONUNBUFFERED: 0
+    volumes:
+      - ./processor/src/:/code/
+    depends_on:
+      - postgres
+
+  webapp:
+    build:
+      context: ./webapp
+    image: ticker_backend
+    container_name: ticker_backend
+    ports:
+      - 8000:8000
+    command: /code/runner.sh
+    environment:
+      PGPASSWORD: "ticker"
+      PYTHONUNBUFFERED: 0
+    volumes:
+      - ./webapp/src/:/code/
+    depends_on:
+      - postgres
+  
+volumes:
+  ticker-data:
+    external: true
